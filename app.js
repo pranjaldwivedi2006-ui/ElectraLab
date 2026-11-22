@@ -20,15 +20,7 @@ const experiments = [
         description: "Find equivalent circuits and study maximum load power.",
         level: "Intermediate"
     },
-    {
-        id: "superposition",
-        icon: "⚡",
-        color: "purple",
-        tag: "NETWORK THEOREMS",
-        title: "Superposition & Reciprocity",
-        description: "Analyze circuits with multiple sources and verify theorems.",
-        level: "Intermediate"
-    },
+    
     {
         id: "energy",
         icon: "⏱️",
@@ -105,7 +97,7 @@ function experimentCard(exp) {
             <div class="exp-footer">
                 <span class="level">${exp.level}</span>
                 <button class="open-exp" data-experiment="${exp.id}">
-                   ${["ohms", "thevenin"].includes(exp.id) ? "Open Lab →" : "Coming Soon"}
+                   ${["ohms", "thevenin", "energy"].includes(exp.id) ? "Open Lab →" : "Coming Soon"}
                 </button>
             </div>
         </article>
@@ -129,7 +121,7 @@ function showPage(page) {
 
             <section class="hero">
                 <div>
-                    <h1>Welcome to VoltLab ⚡</h1>
+                    <h1>Welcome to ElectraLab ⚡</h1>
                     <p>Your interactive electrical engineering laboratory.<br>
                     Learn by building, experimenting and simulating.</p>
                 </div>
@@ -424,6 +416,8 @@ app.addEventListener("click", (event) => {
     renderTheveninLab();
 } else if (experiment === "series") {
     renderSeriesLab();
+} else if (experiment === "energy") {
+    renderEnergyMeterLab();
 }
     }
 });
@@ -434,7 +428,7 @@ function renderSeriesLab() {
 const main = document.getElementById("main-content");
 
 if (!main) {
-    console.error("VoltLab: main-content element not found!");
+    console.error("ElectraLab: main-content element not found!");
     return;
 }
     
@@ -1043,4 +1037,447 @@ equivalentBtn.addEventListener("click", () => {
     });
 
     update();
+}
+let energyRunning = false;
+let energyDiscSpeed = 0;
+function renderEnergyMeterLab() {
+    const main = document.getElementById("main-content");
+
+    main.innerHTML = `
+        <div class="sim-page energy-lab">
+            <div class="sim-header">
+                <button class="back-btn" onclick="renderDashboard()">← Back</button>
+                <h1>Energy Meter Calibration Lab</h1>
+                <p>Interactive 3D Electrical Measurement Workbench</p>
+            </div>
+
+            <div class="energy-panel">
+                <h2>3D Circuit Workbench</h2>
+                <p>Rotate: Drag | Zoom: Scroll</p>
+
+                <div class="energy-workspace" id="energy3D"></div>
+
+<div class="energy-panel energy-controls">
+    <h2>Simulation Controls</h2>
+
+    <label>Supply Voltage (V)</label>
+    <input type="number" id="energyVoltage" value="230" min="0" max="300">
+
+    <label>Load Resistance (Ω)</label>
+    <input type="number" id="energyResistance" value="100" min="1" max="10000">
+
+    <label>Power Factor</label>
+    <input type="number" id="energyPF" value="1" min="0.1" max="1" step="0.01">
+
+    <div class="energy-toolbar">
+    <button id="energyRunBtn" class="back-btn">▶ Start</button>
+    <button id="energyStopBtn" class="back-btn">⏸ Stop</button>
+    <button id="energyResetBtn" class="back-btn">↻ Reset</button>
+</div>
+</div>
+            </div>
+
+           <div class="energy-panel">
+    <h2>Live Measurements</h2>
+    <div class="energy-grid">
+        <div class="energy-stat">
+            <span>Voltage</span>
+            <strong id="energyVoltageDisplay">230 V</strong>
+        </div>
+
+        <div class="energy-stat">
+            <span>Current</span>
+            <strong id="energyCurrentDisplay">0.00 A</strong>
+        </div>
+
+        <div class="energy-stat">
+            <span>Real Power</span>
+            <strong id="energyPowerDisplay">0 W</strong>
+        </div>
+
+        <div class="energy-stat">
+            <span>Energy Consumed</span>
+            <strong id="energyConsumedDisplay">0.000 kWh</strong>
+        </div>
+
+        <div class="energy-stat">
+            <span>Elapsed Time</span>
+            <strong id="energyElapsedDisplay">0 s</strong>
+        </div>
+    </div>
+
+<div class="energy-panel">
+    <h2>Meter Calibration</h2>
+    <p>Compare the reference energy with the energy recorded by the meter.</p>
+    <div class="energy-control">
+    <label for="meterAccuracy">Simulated Meter Error (%)</label>
+    <input
+        type="number"
+        id="meterAccuracy"
+        value="-2"
+        min="-20"
+        max="20"
+        step="0.1"
+    >
+    <small>Negative = under-registration | Positive = over-registration</small>
+</div>
+    <div class="energy-grid">
+        <div class="energy-stat">
+            <span>Reference Energy (kWh)</span>
+            <strong id="referenceEnergy">0.000000</strong>
+        </div>
+
+        <div class="energy-stat">
+            <span>Meter Energy (kWh)</span>
+            <strong id="meterEnergy">0.000000</strong>
+        </div>
+
+        <div class="energy-stat">
+            <span>Percentage Error</span>
+            <strong id="meterError">—</strong>
+        </div>
+
+        <div class="energy-stat">
+            <span>Correction Factor</span>
+            <strong id="meterCorrection">—</strong>
+        </div>
+
+        <div class="energy-stat">
+            <span>Calibration Status</span>
+            <strong id="calibrationStatus">Not Started</strong>
+        </div>
+    </div>
+</div>
+</div>
+        </div>
+    `;
+
+    initEnergy3D();
+    // Energy Meter Simulation Calculations
+const runBtn = document.getElementById("energyRunBtn");
+
+
+let energyStartTime = null;
+let energyTotalKWh = 0;
+let energyElapsedTotal = 0;
+let energyLastUpdate = null;
+
+runBtn.addEventListener("click", () => {
+    const V = parseFloat(document.getElementById("energyVoltage").value);
+    const R = parseFloat(document.getElementById("energyResistance").value);
+    const PF = parseFloat(document.getElementById("energyPF").value);
+
+    if (!Number.isFinite(V) || !Number.isFinite(R) || !Number.isFinite(PF) ||
+        V <= 0 || R <= 0 || PF <= 0 || PF > 1) {
+        alert("Please enter valid electrical values.");
+        return;
+    }
+
+    const I = V / R;
+    const P = V * I * PF;
+    energyDiscSpeed = P * 0.00002;
+
+    energyRunning = true;
+    energyStartTime = Date.now();
+    energyElapsedTotal = 0;
+    energyLastUpdate = Date.now();
+
+    document.getElementById("energyVoltageDisplay").textContent = V.toFixed(1) + " V";
+    document.getElementById("energyCurrentDisplay").textContent = I.toFixed(3) + " A";
+    document.getElementById("energyPowerDisplay").textContent = P.toFixed(2) + " W";
+
+    alert("Simulation Started!");
+});
+
+// Stop Simulation
+document.getElementById("energyStopBtn").addEventListener("click", () => {
+    if (energyRunning) {
+        updateEnergyMeter();
+        energyRunning = false;
+    }
+});
+
+// Reset Simulation
+document.getElementById("energyResetBtn").addEventListener("click", () => {
+    energyRunning = false;
+    energyStartTime = null;
+    energyLastUpdate = null;
+    energyTotalKWh = 0;
+
+    document.getElementById("energyVoltageDisplay").textContent = "0 V";
+    document.getElementById("energyCurrentDisplay").textContent = "0 A";
+    document.getElementById("energyPowerDisplay").textContent = "0 W";
+    document.getElementById("energyConsumedDisplay").textContent = "0.000000 kWh";
+    document.getElementById("energyElapsedDisplay").textContent = "0 s";
+});
+
+function updateEnergyMeter() {
+    if (!energyRunning) return;
+
+    const now = Date.now();
+    const deltaSeconds = (now - energyLastUpdate) / 1000;
+    energyLastUpdate = now;
+
+    const V = parseFloat(document.getElementById("energyVoltage").value);
+    const R = parseFloat(document.getElementById("energyResistance").value);
+    const PF = parseFloat(document.getElementById("energyPF").value);
+
+    const I = V / R;
+    const P = V * I * PF;
+
+    // Reference energy calculation
+    energyTotalKWh += (P * deltaSeconds) / 3600000;
+
+    energyElapsedTotal += deltaSeconds;
+    const elapsedSeconds = Math.floor(energyElapsedTotal);
+
+    // Simulated meter error: 2% under-registration
+    const referenceEnergy = energyTotalKWh;
+    const accuracyInput = parseFloat(
+    document.getElementById("meterAccuracy").value
+);
+
+const meterEnergy = referenceEnergy * (1 + accuracyInput / 100);
+
+    // Calibration calculations
+    const errorPercent = referenceEnergy > 0
+        ? ((meterEnergy - referenceEnergy) / referenceEnergy) * 100
+        : 0;
+
+    const correctionFactor = meterEnergy > 0
+        ? referenceEnergy / meterEnergy
+        : 0;
+
+    // Update live measurements
+    document.getElementById("energyConsumedDisplay").textContent =
+        referenceEnergy.toFixed(6) + " kWh";
+
+    document.getElementById("energyElapsedDisplay").textContent =
+        elapsedSeconds + " s";
+
+    // Update calibration panel
+    document.getElementById("referenceEnergy").textContent =
+        referenceEnergy.toFixed(6);
+
+    document.getElementById("meterEnergy").textContent =
+        meterEnergy.toFixed(6);
+
+    document.getElementById("meterError").textContent =
+        errorPercent.toFixed(2) + " %";
+
+    document.getElementById("meterCorrection").textContent =
+        correctionFactor.toFixed(4);
+
+    document.getElementById("calibrationStatus").textContent =
+        errorPercent < 0 ? "Under-registering" :
+        errorPercent > 0 ? "Over-registering" :
+        "Accurate";
+}
+
+setInterval(updateEnergyMeter, 1000);
+}
+
+function initEnergy3D() {
+    const container = document.getElementById("energy3D");
+
+    if (!container || typeof THREE === "undefined") {
+        console.error("Three.js or workspace not found");
+        return;
+    }
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1220);
+
+    const camera = new THREE.PerspectiveCamera(
+        50,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+    );
+
+    camera.position.set(7, 6, 9);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    container.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+    const light = new THREE.DirectionalLight(0xffffff, 1.2);
+    light.position.set(5, 10, 7);
+    scene.add(light);
+
+    const floor = new THREE.Mesh(
+        new THREE.BoxGeometry(10, 0.2, 7),
+        new THREE.MeshStandardMaterial({ color: 0x26354b })
+    );
+
+    floor.position.y = -0.2;
+    scene.add(floor);
+
+    // Energy meter body
+const meter = new THREE.Group();
+
+// Main casing
+const casing = new THREE.Mesh(
+    new THREE.BoxGeometry(2.4, 1.7, 1.2),
+    new THREE.MeshStandardMaterial({ color: 0xdfe6ed, roughness: 0.65 })
+);
+meter.add(casing);
+
+// Meter display face
+const face = new THREE.Mesh(
+    new THREE.BoxGeometry(1.9, 1.1, 0.08),
+    new THREE.MeshStandardMaterial({ color: 0x172033 })
+);
+face.position.set(0, 0.15, 0.64);
+meter.add(face);
+
+// Dial window
+const dial = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.32, 0.32, 0.08, 32),
+    new THREE.MeshStandardMaterial({ color: 0x29c7a8 })
+);
+dial.rotation.x = Math.PI / 2;
+dial.position.set(-0.48, 0.25, 0.72);
+meter.add(dial);
+
+// Display reading window
+const display = new THREE.Mesh(
+    new THREE.BoxGeometry(0.65, 0.28, 0.05),
+    new THREE.MeshStandardMaterial({ color: 0x9affc8 })
+);
+display.position.set(0.48, 0.45, 0.72);
+meter.add(display);
+
+// Meter label plate
+const labelPlate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.22, 0.05),
+    new THREE.MeshStandardMaterial({ color: 0xffb74d })
+);
+labelPlate.position.set(0.45, -0.05, 0.72);
+meter.add(labelPlate);
+
+// Bottom terminals
+for (let i = 0; i < 4; i++) {
+    const terminal = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.12, 0.18, 20),
+        new THREE.MeshStandardMaterial({ color: 0xc5ccd5, metalness: 0.8, roughness: 0.3 })
+    );
+
+    terminal.rotation.x = Math.PI / 2;
+    terminal.position.set(-0.75 + i * 0.5, -0.95, 0.25);
+    meter.add(terminal);
+}
+
+meter.position.set(0, 0.85, 0);
+scene.add(meter);
+
+// AC Supply Unit
+const supply = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 1.5, 1.2),
+    new THREE.MeshStandardMaterial({ color: 0x2878d0 })
+);
+supply.position.set(-3, 0.75, 0);
+scene.add(supply);
+
+// Supply dial
+const supplyDial = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.25, 0.25, 0.12, 32),
+    new THREE.MeshStandardMaterial({ color: 0x182435 })
+);
+supplyDial.rotation.x = Math.PI / 2;
+supplyDial.position.set(-3, 0.95, 0.65);
+scene.add(supplyDial);
+
+// Load Unit
+const loadUnit = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 1.5, 1.2),
+    new THREE.MeshStandardMaterial({ color: 0x38a779 })
+);
+loadUnit.position.set(3, 0.75, 0);
+scene.add(loadUnit);
+
+// Load adjustment knob
+const loadKnob = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.25, 0.25, 0.12, 32),
+    new THREE.MeshStandardMaterial({ color: 0x182435 })
+);
+loadKnob.rotation.x = Math.PI / 2;
+loadKnob.position.set(3, 0.95, 0.65);
+scene.add(loadKnob);
+
+// Connecting wires
+function makeWire(points, color) {
+    const curve = new THREE.CatmullRomCurve3(
+        points.map(p => new THREE.Vector3(p[0], p[1], p[2]))
+    );
+
+    const wire = new THREE.Mesh(
+        new THREE.TubeGeometry(curve, 32, 0.045, 8, false),
+        new THREE.MeshStandardMaterial({ color: color })
+    );
+
+    scene.add(wire);
+}
+
+// Supply to meter
+makeWire([
+    [-2.25, 1.0, 0.4],
+    [-1.8, 1.8, 0.4],
+    [-1.2, 1.8, 0.4],
+    [-1.0, 1.4, 0.4]
+], 0xff4545);
+
+// Meter to load
+makeWire([
+    [1.0, 1.4, 0.4],
+    [1.4, 1.8, 0.4],
+    [2.0, 1.8, 0.4],
+    [2.25, 1.0, 0.4]
+], 0x38d6a5);
+
+    function animate() {
+    requestAnimationFrame(animate);
+
+    if (energyRunning) {
+        dial.rotation.z += energyDiscSpeed;
+    }
+
+    renderer.render(scene, camera);
+}
+
+    animate();
+
+    let dragging = false;
+    let previousX = 0;
+    let previousY = 0;
+
+    renderer.domElement.addEventListener("mousedown", (e) => {
+        dragging = true;
+        previousX = e.clientX;
+        previousY = e.clientY;
+    });
+
+    window.addEventListener("mouseup", () => dragging = false);
+
+    renderer.domElement.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+
+        const dx = e.clientX - previousX;
+        const dy = e.clientY - previousY;
+
+        scene.rotation.y += dx * 0.01;
+        scene.rotation.x += dy * 0.01;
+
+        previousX = e.clientX;
+        previousY = e.clientY;
+    });
+
+    renderer.domElement.addEventListener("wheel", (e) => {
+        camera.position.multiplyScalar(e.deltaY > 0 ? 1.1 : 0.9);
+    });
 }

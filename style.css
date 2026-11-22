@@ -485,7 +485,7 @@ button {
     }
 }
 
-/* ===== VoltLab Simulation Workspace ===== */
+/* ===== ElectraLab Simulation Workspace ===== */
 
 .sim-page {
     animation: fadeIn 0.25s ease;
@@ -855,4 +855,77 @@ button {
     color: #0b0f17;
     border-color: var(--accent);
     font-weight: 700;
+}
+/* ================================
+   ELECTRALAB ENERGY METER 3D LAB
+================================ */
+
+.energy-lab {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.energy-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.energy-workspace {
+    width: 100%;
+    height: 520px;
+    background: #0b1220;
+    border: 1px solid #26354b;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+}
+
+.energy-workspace canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.energy-panel {
+    background: #111b2c;
+    border: 1px solid #26354b;
+    border-radius: 14px;
+    padding: 18px;
+    color: #e8eef8;
+}
+
+.energy-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.energy-stat {
+    background: #0b1220;
+    padding: 14px;
+    border-radius: 10px;
+}
+
+.energy-stat span {
+    display: block;
+    color: #8fa6c2;
+    font-size: 13px;
+}
+
+.energy-stat strong {
+    display: block;
+    font-size: 22px;
+    margin-top: 6px;
+}
+
+@media (max-width: 700px) {
+    .energy-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .energy-workspace {
+        height: 380px;
+    }
 }
