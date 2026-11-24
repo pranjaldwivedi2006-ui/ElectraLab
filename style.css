@@ -929,3 +929,16 @@ button {
         height: 380px;
     }
 }
+/* Coming Soon experiment badge */
+.coming-exp {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    letter-spacing: 1.2px;
+    padding: 12px 20px !important;
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #f59e0b !important;
+    border: 1px solid rgba(245, 158, 11, 0.45) !important;
+    border-radius: 10px;
+    cursor: not-allowed !important;
+    opacity: 1 !important;
+}

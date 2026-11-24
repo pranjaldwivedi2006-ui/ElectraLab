@@ -96,9 +96,13 @@ function experimentCard(exp) {
             <p>${exp.description}</p>
             <div class="exp-footer">
                 <span class="level">${exp.level}</span>
-                <button class="open-exp" data-experiment="${exp.id}">
-                   ${["ohms", "thevenin", "energy"].includes(exp.id) ? "Open Lab →" : "Coming Soon"}
-                </button>
+                <button 
+    class="open-exp ${["ohms", "thevenin", "energy"].includes(exp.id) ? "active-exp" : "coming-exp"}"
+    data-experiment="${exp.id}"
+    ${!["ohms", "thevenin", "energy"].includes(exp.id) ? "disabled" : ""}
+>
+    ${["ohms", "thevenin", "energy"].includes(exp.id) ? "Open Lab →" : "COMING SOON"}
+</button>
             </div>
         </article>
     `;
@@ -131,12 +135,12 @@ function showPage(page) {
             <section class="stats">
                 <div class="stat-card">
                     <div class="stat-top"><span class="stat-label">Experiments</span><span class="stat-icon">⚗️</span></div>
-                    <div class="stat-value">06</div>
+                    <div class="stat-value">04</div>
                     <div class="stat-foot">Planned virtual experiments</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-top"><span class="stat-label">Available Now</span><span class="stat-icon">⚡</span></div>
-                    <div class="stat-value">01</div>
+                    <div class="stat-value">03</div>
                     <div class="stat-foot">Ready to interact</div>
                 </div>
                 <div class="stat-card">
